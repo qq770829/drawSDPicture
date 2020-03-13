@@ -1,3 +1,6 @@
+#ifndef __PICDECODER_H__
+#define __PICDECODER_H__
+
 //可以解码JPEG/JPG和BMP
 //对JPEG格式,把不应该显示的列和行的颜色计算省去了.
 //在显示大图片的时候,速度明显提高
@@ -6,8 +9,6 @@
 //对BMP,支持16bit 24bit 和32bit图片显示
 //对JPG,基本只支持JFIF格式
 //如果不是JFIF格式,用windows的画图打开然后保存一下,就是这个格式了!
-#ifndef __PICDECODER_H__
-#define __PICDECODER_H__
 //BMP信息头
 //重定义区
 typedef long  LONG; 
@@ -110,32 +111,30 @@ typedef RGBQUAD * LPRGBQUAD;//彩色表
 
 //////////////////////////////////////////////////
 //BMP解码函数
-bool bmpDecode( u8 *filename);
+bool bmpDecode( u8 *filename, void (*screenDrawPixel)(short,short,u16));
 //////////////////////////////////////////////////
 
 
-//////////////////////////////////////////////////
+
 //JPEG 解码函数        
-int jpgDecode(u8* filename);
+int jpgDecode(u8* filename, void (*screenDrawPixel)(short,short,u16));
 int  InitTag(void);
 void InitTable(void);              //初始化数据表
-int  Decode(void);                 //解码
+int  Decode(void (*screenDrawPixel)(short,short,u16));                 //解码
 int  DecodeMCUBlock(void);
 int  HufBlock(u8 dchufindex,u8 achufindex);//哈夫曼解码
 int  DecodeElement(void);            //解码一个像素
 void IQtIZzMCUComponent(short flag);       //反量化
 void IQtIZzBlock(short  *s ,short * d,short flag);
 void GetYUV(short flag);     //色彩转换的实现,得到色彩空间数据
-void StoreBuffer(void);
+void StoreBuffer(void (*screenDrawPixel)(short,short,u16));
 
 BYTE ReadByte(void);             //从文件里面读取一个字节出来
 void Initialize_Fast_IDCT(void); //初始化反离散傅立叶变换
 void Fast_IDCT(int * block);   //快速反离散傅立叶变换
 void idctrow(int * blk);
 void idctcol(int * blk);  
-//////////////////////////////////////////////////   
-
-
-bool AI_LoadPicFile( u8 *filename,u16 sx,u16 sy,u16 ex,u16 ey);//智能显示图片    
+bool AI_LoadPicFile( u8 *filename,u16 sx,u16 sy,u16 ex,u16 ey, void (*screenDrawPixel)(short,short,u16));//智能显示图片    
 u8 pictype(u8* filename); //判断图片类型
+//bool initsdl(int screenWidth, int screenHeight); //初始化SDL
 #endif
