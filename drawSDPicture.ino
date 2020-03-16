@@ -86,13 +86,13 @@ void loop()
   screen.fillScreen(COLOR_RGB565_PURPLE);
 
   /**
-   * @brief 显示sd卡上的jpg图片
+   * @brief 解码函数，通过调用画点函数，显示sd卡上的jpg/bmp图片
    * @param filename 要打开的SD卡文件名及路径
    * @param sx 开始显示的x坐标
    * @param sy 开始显示的y坐标
    * @param ex 结束显示的x坐标
    * @param ey 结束显示的y坐标
-   * @param screenDrawPixel 在屏幕上画像素点的函数名
+   * @param screenDrawPixel 画点函数名
    */
   drawSDPicture(/*filename=*/"picture/ColorImage/219x220.jpg",/*sx=*/0,/*sy=*/0,/*ex=*/240,/*ey=*/240,/*screenDrawPixel=*/screenDrawPixel);
 
@@ -122,8 +122,8 @@ void loop()
         //拼接文件名
         strcpy(str,"picture/Icon/");
         strcat(str,entry.name());
-        //调用解码函数显示图片
-        drawSDPicture(str, x, y, x+32, y+32, screenDrawPixel);
+        //显示一个图标
+        drawSDPicture(/*filename=*/str,/*sx=*/x,/*sy=*/y,/*ex=*/x+32,/*ey=*/y+32,/*screenDrawPixel=*/screenDrawPixel);
       }
     }
   }
