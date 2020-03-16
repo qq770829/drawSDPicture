@@ -94,7 +94,7 @@ void loop()
    * @param ey 结束显示的y坐标
    * @param screenDrawPixel 在屏幕上画像素点的函数名
    */
-  drawSDPicture(/*filename=*/"picture/test/219x220.jpg",/*sx=*/0,/*sy=*/0,/*ex=*/240,/*ey=*/240,/*screenDrawPixel=*/screenDrawPixel);
+  drawSDPicture(/*filename=*/"picture/ColorImage/219x220.jpg",/*sx=*/0,/*sy=*/0,/*ex=*/240,/*ey=*/240,/*screenDrawPixel=*/screenDrawPixel);
 
   /*
   *SD.open的mode参数
@@ -102,7 +102,7 @@ void loop()
   *FILE_WRITE: 打开文件进行读写，从文件末尾开始
   */
   //批量显示图标
-  File myDir = SD.open(/*directory name=*/"picture/24/",/*mode=*/FILE_READ);
+  File myDir = SD.open(/*directory name=*/"picture/Icon/",/*mode=*/FILE_READ);
   if(myDir)
   {
     /*设置屏幕颜色*/
@@ -120,7 +120,7 @@ void loop()
           goto quit;
         }
         //拼接文件名
-        strcpy(str,"picture/24/");
+        strcpy(str,"picture/Icon/");
         strcat(str,entry.name());
         //调用解码函数显示图片
         drawSDPicture(str, x, y, x+32, y+32, screenDrawPixel);
