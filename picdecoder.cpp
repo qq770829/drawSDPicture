@@ -1,6 +1,8 @@
 #include "picdecoder.h"
-#include <SD.h> 
-File sdfile;  //定义SD库的File类型变量为全局变量，用于打开文件、获取位置、偏移、关闭文件
+
+#include <SD.h>
+File picfile;  //定义SD库的File类型变量为全局变量，用于指向打开文件、获取位置、偏移、关闭文件
+
 
 //全局变量声明,BMP和JPEG共用
 int screenWidth = 0, screenHeight = 0;//屏幕窗口大小
@@ -8,19 +10,19 @@ int screenWidth = 0, screenHeight = 0;//屏幕窗口大小
 //图像信息
 typedef struct
 {
-  u32 ImgWidth; //图像的实际宽度和高度
-  u32 ImgHeight;
+  unsigned int ImgWidth; //图像的实际宽度和高度
+  unsigned int ImgHeight;
 
-  u32 Div_Fac;  //缩放系数 (扩大了10000倍的)
+  unsigned int Div_Fac;  //缩放系数 (扩大了10000倍的)
 
-  u32 S_Height; //设定的高度和宽度
-  u32 S_Width;
+  unsigned int S_Height; //设定的高度和宽度
+  unsigned int S_Width;
 
-  u32 S_XOFF;   //x轴和y轴的偏移量
-  u32 S_YOFF;
+  unsigned int S_XOFF;   //x轴和y轴的偏移量
+  unsigned int S_YOFF;
 
-  u32 staticx;  //当前显示到的ｘｙ坐标
-  u32 staticy;
+  unsigned int staticx;  //当前显示到的ｘｙ坐标
+  unsigned int staticy;
 } PIC_POS;
 PIC_POS PICINFO;//图像位置信息
 
@@ -33,9 +35,9 @@ short     Y_in_MCU, U_in_MCU, V_in_MCU;
 unsigned char* lp;//取代lpJpegBuf
 short     qt_table[3][64];
 short     comp_num;
-u8      comp_index[3];
-u8        YDcIndex, YAcIndex, UVDcIndex, UVAcIndex;
-u8      HufTabIndex;
+uint8_t      comp_index[3];
+uint8_t        YDcIndex, YAcIndex, UVDcIndex, UVAcIndex;
+uint8_t      HufTabIndex;
 short* YQtTable, * UQtTable, * VQtTable;
 short       code_pos_table[4][16], code_len_table[4][16];
 unsigned short  code_value_table[4][256];
@@ -48,8 +50,8 @@ short     BlockBuffer[64];
 short     ycoef, ucoef, vcoef;
 bool      IntervalFlag;
 short     interval = 0;
-short     Y[4 * 64], U[4 * 64], V[4 * 64];//
-DWORD       sizei, sizej;
+short     Y[4 * 64], U[4 * 64], V[4 * 64];
+unsigned int       sizei, sizej;
 short       restart;
 
 long* iclp;
@@ -63,17 +65,16 @@ const int Zig_Zag[8][8] = { {0,1,5,6,14,15,27,28},
   {21,34,37,47,50,56,59,61},
   {35,36,48,49,57,58,62,63}
 };
-const BYTE And[9] = { 0,1,3,7,0xf,0x1f,0x3f,0x7f,0xff };
+const uint8_t And[9] = { 0,1,3,7,0xf,0x1f,0x3f,0x7f,0xff };
 //数据缓冲区
-u8 jpg_buffer[1024];//数据缓存区
-u8 SPI_FLASH_BUF[4096];
-long* iclip = (long*)SPI_FLASH_BUF;//4k BYTES //跟FLash共用
+uint8_t jpg_buffer[JD_SZBUF];//数据缓存区
+uint8_t SPI_FLASH_BUF[JPEG_WBUF_SIZE];//jpg工作区
+long* iclip = (long*)SPI_FLASH_BUF;
 
 
 
 
-
-//初始化智能画点
+//初始化智能画图
 void AI_Drow_Init(void)
 {
   float temp, temp1;
@@ -95,7 +96,7 @@ void AI_Drow_Init(void)
 //(x,y) :像素原始坐标
 //chg   :功能变量.
 //返回值:0,不需要显示.1,需要显示
-inline u8 IsElementOk(u16 x, u16 y, u8 chg)
+inline uint8_t IsElementOk(uint16_t x, uint16_t y, uint8_t chg)
 {
   if (x != PICINFO.staticx || y != PICINFO.staticy)
   {
@@ -112,14 +113,14 @@ inline u8 IsElementOk(u16 x, u16 y, u8 chg)
 //(sx,sy) :开始显示的坐标点
 //(ex,ey) :结束显示的坐标点
 //图片会在开始和结束的坐标点范围内显示
-bool drawSDPicture(const char* filename, u16 sx, u16 sy, u16 ex, u16 ey,void (*screenDrawPixel)(short,short,u16))
+bool drawSDPicture(const char* filename, uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey,void (*screenDrawPixel)(short,short,uint16_t))
 {
   //窗口大小
   screenWidth = ex, screenHeight = ey;
 
   int funcret;//返回值
   //得到显示方框大小
-  u8 fileTpe;
+  uint8_t fileTpe;
   int index;
   for (index = 0; index < 1024; index++)
     iclip[index] = 0;
@@ -139,51 +140,54 @@ bool drawSDPicture(const char* filename, u16 sx, u16 sy, u16 ex, u16 ey,void (*s
   PICINFO.S_YOFF = sy;
   PICINFO.S_XOFF = sx;
 
-  fileTpe = pictype((u8*)filename);  //得到文件的类型
+  fileTpe = pictype((uint8_t*)filename);  //得到文件的类型
   if (fileTpe == BMPTYPE)//得到一个BMP图像
   {
-    funcret = bmpDecode((u8*)filename, screenDrawPixel);
+    funcret = bmpDecode((uint8_t*)filename, screenDrawPixel);
   }
   else if (fileTpe == JPGTYPE)//得到JPG/JPEG图片
   {
-    funcret = jpgDecode((u8*)filename, screenDrawPixel);
+    funcret = jpgDecode((uint8_t*)filename, screenDrawPixel);
   }
   else
   {
-    sdfile.close();
+    picfile.close();
     return false;  //格式不正确!!!
   }
-  sdfile.close();
+  picfile.close();
   if (funcret == FUNC_OK)return true;//解码成功
   else return false;   //解码失败
 }
 
 //解码这个BMP文件
-bool bmpDecode(u8* filename, void (*screenDrawPixel)(short,short,u16))
+bool bmpDecode(uint8_t* filename, void (*screenDrawPixel)(short,short,uint16_t))
 {
-  u16 count;
-  u8 res;
-  u8  rgb, color_byte;
+  uint16_t count;
+  uint8_t res;
+  uint8_t  rgb, color_byte;
   unsigned char R, G, B;
-  u16 x, y,color;
-  u16 uiTemp;    //x轴方向像素计数器
-  u16 countpix = 0;//记录像素
+  uint16_t x, y,color;
+  uint16_t uiTemp;    //x轴方向像素计数器
+  uint16_t countpix = 0;//记录像素
   //x,y的实际坐标
-  u16 realx = 0;
-  u16 realy = 0;
-  u8  yok = 1;
-  u8  bitype;//判断压缩类型
-  BITMAPINFO* pbmp;//临时指针
+  uint16_t realx = 0;
+  uint16_t realy = 0;
+  uint8_t  yok = 1;
+  uint8_t  bitype;//判断压缩类型
+  BITMAPINFO* pbmp;//存放bmp图片头部所有信息的临时指针
 
-  sdfile = SD.open((const char*)filename, FILE_READ);//打开文件
-  if(sdfile ==NULL)
+
+  picfile = SD.open((const char*)filename, FILE_READ);//打开文件
+
+
+  if(picfile ==NULL)
   {
-    Serial.println("this filename open fail");
+    DBG("this BMP open fail");
     return false;
   }
-  sdfile.read(jpg_buffer, 1024);//读取一次
+  picfile.read(jpg_buffer, 1024);//读取一次
   pbmp = (BITMAPINFO*)jpg_buffer;//得到BMP的头部信息
-  (u8*)jpg_buffer;
+  (uint8_t*)jpg_buffer;
   count = pbmp->bmfHeader.bfOffBits;        //数据偏移,得到数据段的开始地址
   color_byte = pbmp->bmiHeader.biBitCount / 8;//彩色位 16/24/32
   PICINFO.ImgHeight = pbmp->bmiHeader.biHeight;//得到图片高度
@@ -193,13 +197,7 @@ bool bmpDecode(u8* filename, void (*screenDrawPixel)(short,short,u16))
     uiTemp = ((PICINFO.ImgWidth * color_byte) / 4 + 1) * 4;
   else
     uiTemp = PICINFO.ImgWidth * color_byte;
-  if (color_byte == 2)  //16位分为RGB555和RGB565
-  {
-    if (pbmp->bmiHeader.biCompression == 0) //RGB555没有压缩 为0
-      bitype = 0;
-    else
-      bitype = 1;
-  }
+
   AI_Drow_Init();//初始化智能画图
 
 
@@ -236,7 +234,7 @@ bool bmpDecode(u8* filename, void (*screenDrawPixel)(short,short,u16))
           G = jpg_buffer[count] >> 5;
           break;
         case 1:
-          if (bitype == 0) //RGB555颜色图为没有压缩 （0rrrrrgg gggbbbbb）
+          if (pbmp->bmiHeader.biCompression == BI_RGB) //RGB555颜色图为没有压缩 （0rrrrrgg gggbbbbb）
           {
             G |= (jpg_buffer[count] & 0x3) << 3;
             G *= 8;
@@ -306,7 +304,7 @@ bool bmpDecode(u8* filename, void (*screenDrawPixel)(short,short,u16))
         rgb = 0;
       }
     }
-    sdfile.read(jpg_buffer, 1024);//读出
+    picfile.read(jpg_buffer, 1024);//读出
     count = 0;
   }
   return true;
@@ -315,16 +313,16 @@ bool bmpDecode(u8* filename, void (*screenDrawPixel)(short,short,u16))
 //对指针地址进行改变!
 //pc    :当前指针
 //返回值:当前指针的减少量.在d_buffer里面自动进行了偏移
-void jpg_seek(u8* pbase, u8** pnow)
+void jpg_seek(uint8_t* pbase, uint8_t** pnow)
 {
-  u32 pos;
-  u16 offset;
+  unsigned int pos;
+  uint16_t offset;
   offset = *pnow - pbase;//当前的偏移量.
   if (offset > 1000)//将要结束了,做下一次读取
   {
-    pos = sdfile.position();//得到当前位置
-    sdfile.seek(pos -1024 + offset);//因为之前读了1024还没有用完，所以指向没有用到的位置开始读
-    sdfile.read(pbase, 1024); //读取1024个字节.
+    pos = picfile.position();//得到当前位置
+    picfile.seek(pos -1024 + offset);//因为之前读了1024还没有用完，所以指向没有用到的位置开始读
+    picfile.read(pbase, 1024); //读取1024个字节.
     *pnow = pbase;//复位
   }
 }
@@ -333,14 +331,14 @@ void jpg_seek(u8* pbase, u8** pnow)
 int InitTag(void)
 {
   bool finish = false;
-  u8 id;
+  uint8_t id;
   short  llength;
   short  i, j, k;
   short  huftab1, huftab2;
   short  huftabindex;
-  u8 hf_table_index;
-  u8 qt_table_index;
-  u8 comnum;//最长为256个字节
+  uint8_t hf_table_index;
+  uint8_t qt_table_index;
+  uint8_t comnum;//最长为256个字节
 
   unsigned char* lptemp;
   short  colorount;
@@ -387,8 +385,12 @@ int InitTag(void)
       llength = MAKEWORD(*(lp + 1), *lp);   //长度 (高字节, 低字节), 8+components*3
       PICINFO.ImgHeight = MAKEWORD(*(lp + 4), *(lp + 3));//图片高度 (高字节, 低字节), 如果不支持 DNL 就必须 >0
       PICINFO.ImgWidth = MAKEWORD(*(lp + 6), *(lp + 5));  //图片宽度 (高字节, 低字节), 如果不支持 DNL 就必须 >0
-      comp_num = *(lp + 7);//components 数量(1 u8), 灰度图是 1, YCbCr/YIQ 彩色图是 3, CMYK 彩色图是 4
-      if ((comp_num != 1) && (comp_num != 3))return FUNC_FORMAT_ERROR;// 格式错误
+      comp_num = *(lp + 7);//components 数量(1 uint8_t), 灰度图是 1, YCbCr/YIQ 彩色图是 3, CMYK 彩色图是 4
+      if ((comp_num != 1) && (comp_num != 3))
+      {
+        DBG("FUNC_FORMAT_ERROR");
+        return FUNC_FORMAT_ERROR;
+      }// 格式错误
       if (comp_num == 3)            //YCbCr/YIQ 彩色图
       {
         comp_index[0] = *(lp + 8);      //component id (1 = Y, 2 = Cb, 3 = Cr, 4 = I, 5 = Q)
@@ -428,7 +430,7 @@ int InitTag(void)
       break;
     case M_DHT: //定义哈夫曼表(0xFF,0xC4)
       llength = MAKEWORD(*(lp + 1), *lp);//长度 (高字节, 低字节)
-      if (llength < 0xd0)       // Huffman Table信息 (1 u8)
+      if (llength < 0xd0)       // Huffman Table信息 (1 uint8_t)
       {
         huftab1 = (short)(*(lp + 2)) >> 4;     //huftab1=0,1(HT 类型,0 = DC 1 = AC)
         huftab2 = (short)(*(lp + 2)) & 0x0f;   //huftab2=0,1(HT 号  ,0 = Y  1 = UV)
@@ -539,7 +541,11 @@ int InitTag(void)
     case M_SOS:  //扫描开始 12字节
       llength = MAKEWORD(*(lp + 1), *lp);
       comnum = *(lp + 2);
-      if (comnum != comp_num)return FUNC_FORMAT_ERROR; //格式错误
+      if (comnum != comp_num)
+      {
+        DBG("FUNC_FORMAT_ERROR");
+        return FUNC_FORMAT_ERROR; //格式错误
+      }
       lptemp = lp + 3;//这里也可能出现错误
       //这里也可能出错,但是几率比较小了
       for (i = 0; i < comp_num; i++)//每组件的信息
@@ -562,6 +568,7 @@ int InitTag(void)
       finish = true;
       break;
     case M_EOI:
+      DBG("pic end");
       return FUNC_FORMAT_ERROR;//图片结束 标记
     default:
       if ((id & 0xf0) != 0xd0)
@@ -626,7 +633,7 @@ void InitTable(void)
 //          IQtIZzMCUComponent()   反量化、反DCT
 //          GetYUV()               Get Y U V
 //          StoreBuffer()          YUV to RGB
-int Decode(void (*screenDrawPixel)(short,short,u16))
+int Decode(void (*screenDrawPixel)(short,short,uint16_t))
 {
   int funcret;
   Y_in_MCU = SampRate_Y_H * SampRate_Y_V;//YDU YDU YDU YDU
@@ -657,7 +664,7 @@ int Decode(void (*screenDrawPixel)(short,short,u16))
       sizej = 0;
       sizei += SampRate_Y_V * 8;
     }
-    if ((sizej == 0) && (sizei >= PICINFO.ImgHeight))break;
+    if ((sizej == 0) && (sizei >= PICINFO.ImgHeight)) break;
   }
   return funcret;
 }
@@ -698,15 +705,15 @@ void  GetYUV(short flag)
 }
 
 //将解出的字按RGB形式存储 lpbmp (BGR),(BGR) ......入口Y[] U[] V[] 出口lpPtr
-void StoreBuffer(void (*screenDrawPixel)(short,short,u16))
+void StoreBuffer(void (*screenDrawPixel)(short,short,uint16_t))
 {
   short i = 0, j = 0;
   unsigned char R, G, B;
   int y, u, v, rr, gg, bb;
-  u16 color;
+  uint16_t color;
   //x,y的实际坐标
-  u16 realx = sizej;
-  u16 realy = 0;
+  uint16_t realx = sizej;
+  uint16_t realy = 0;
 
 
   for (i = 0; i < SampRate_Y_V * 8; i++)
@@ -816,12 +823,13 @@ int DecodeMCUBlock(void)
       *lpMCUBuffer++ = 0;
     break;
   default:
+    DBG("FUNC_FORMAT_ERROR");
     return FUNC_FORMAT_ERROR;
   }
   return FUNC_OK;
 }
 //Huffman Decode （8*8） DU   出口 Blockbuffer[ ] 入口 vvalue
-int HufBlock(u8 dchufindex, u8 achufindex)
+int HufBlock(uint8_t dchufindex, uint8_t achufindex)
 {
   short count = 0;
   short i;
@@ -857,13 +865,13 @@ int DecodeElement()
   int thiscode, tempcode;
   unsigned short temp, valueex;
   short codelen;
-  u8 hufexbyte, runsize, tempsize, sign;
-  u8 newbyte, lastbyte;
+  uint8_t hufexbyte, runsize, tempsize, sign;
+  uint8_t newbyte, lastbyte;
 
   if (BitPos >= 1) //BitPos指示当前比特位置
   {
     BitPos--;
-    thiscode = (u8)CurByte >> BitPos;//取一个比特
+    thiscode = (uint8_t)CurByte >> BitPos;//取一个比特
     CurByte = CurByte & And[BitPos];   //清除取走的比特位
   }
   else                 //取出的一个字节已用完
@@ -884,7 +892,7 @@ int DecodeElement()
     if (BitPos >= 1)//取出的一个字节还有
     {
       BitPos--;
-      tempcode = (u8)CurByte >> BitPos;
+      tempcode = (uint8_t)CurByte >> BitPos;
       CurByte = CurByte & And[BitPos];
     }
     else
@@ -892,15 +900,19 @@ int DecodeElement()
       lastbyte = ReadByte();
       BitPos--;
       newbyte = CurByte & And[BitPos];
-      tempcode = (u8)lastbyte >> 7;
+      tempcode = (uint8_t)lastbyte >> 7;
       CurByte = newbyte;
     }
     thiscode = (thiscode << 1) + tempcode;
     codelen++;
-    if (codelen > 16)return FUNC_FORMAT_ERROR;
+    if (codelen > 16)
+    {
+      DBG("FUNC_FORMAT_ERROR");
+      return FUNC_FORMAT_ERROR;
+    }
   }  //while
   temp = thiscode - huf_min_value[HufTabIndex][codelen - 1] + code_pos_table[HufTabIndex][codelen - 1];
-  hufexbyte = (u8)code_value_table[HufTabIndex][temp];
+  hufexbyte = (uint8_t)code_value_table[HufTabIndex][temp];
   rrun = (short)(hufexbyte >> 4);  //一个字节中，高四位是其前面的零的个数。
   runsize = hufexbyte & 0x0f;    //后四位为后面字的尺寸
   if (runsize == 0)
@@ -912,7 +924,7 @@ int DecodeElement()
   if (BitPos >= runsize)
   {
     BitPos -= runsize;
-    valueex = (u8)CurByte >> BitPos;
+    valueex = (uint8_t)CurByte >> BitPos;
     CurByte = CurByte & And[BitPos];
   }
   else
@@ -922,7 +934,7 @@ int DecodeElement()
     while (tempsize > 8)
     {
       lastbyte = ReadByte();
-      valueex = (valueex << 8) + (u8)lastbyte;
+      valueex = (valueex << 8) + (uint8_t)lastbyte;
       tempsize -= 8;
     }  //while
     lastbyte = ReadByte();
@@ -1020,9 +1032,9 @@ void Fast_IDCT(int* block)
   for (i = 0; i < 8; i++)idctcol(block + i);
 }
 //从源文件读取一个字节
-u8 ReadByte(void)
+uint8_t ReadByte(void)
 {
-  u8 i;
+  uint8_t i;
   i = *lp++;
   //lp-=P_Cal(lp);//经过P_Cal的处理,把指针移动
   jpg_seek(jpg_buffer, &lp);
@@ -1095,7 +1107,7 @@ void idctcol(int* blk)
         (x4 = blk[8 * 1]) | (x5 = blk[8 * 7]) | (x6 = blk[8 * 5]) | (x7 = blk[8 * 3])))
   {
     blk[8 * 0] = blk[8 * 1] = blk[8 * 2] = blk[8 * 3] = blk[8 * 4] = blk[8 * 5]
-                                           = blk[8 * 6] = blk[8 * 7] = iclp[(blk[8 * 0] + 32) >> 6];
+                                         = blk[8 * 6] = blk[8 * 7] = iclp[(blk[8 * 0] + 32) >> 6];
     return;
   }
   x0 = (blk[8 * 0] << 8) + 8192;
@@ -1134,28 +1146,35 @@ void idctcol(int* blk)
   blk[8 * 7] = iclp[(x7 - x1) >> 14];
 }
 //判断图片格式
-u8 pictype(u8* filename)
+uint8_t pictype(uint8_t* filename)
 {
-  if (filename[strlen((const char*)filename) - 1] == 'p'||filename[strlen((const char*)filename) - 1] == 'P') return 1;
-  else if(filename[strlen((const char*)filename) - 1] == 'g'||filename[strlen((const char*)filename) - 1] == 'G') return 2;
-  return 0;
+  if (filename[strlen((const char*)filename) - 1] == 'p'||filename[strlen((const char*)filename) - 1] == 'P') return BMPTYPE;
+  else if(filename[strlen((const char*)filename) - 1] == 'g'||filename[strlen((const char*)filename) - 1] == 'G') return JPGTYPE;
+  DBG("File format error");
+  return FUNC_FALSE;
 }
 
 //jpg图片解码显示
-int jpgDecode(u8* filename, void (*screenDrawPixel)(short,short,u16))
+int jpgDecode(uint8_t* filename, void (*screenDrawPixel)(short,short,uint16_t))
 {
-  sdfile = SD.open((const char*)filename, FILE_READ);//打开文件
-  if (sdfile == NULL)
+
+
+  picfile = SD.open((const char*)filename, FILE_READ);//打开文件
+
+
+  if (picfile == NULL)
   {
-    Serial.println("open fail");
-    return 0;
+    DBG("open fail");
+    return FUNC_FALSE;
   }
   int funcret;
-  sdfile.read(jpg_buffer,1024);
+  picfile.read(jpg_buffer,1024);
   InitTable();
-  if ((funcret = InitTag()) != FUNC_OK)return false;
-  if ((SampRate_Y_H == 0) || (SampRate_Y_V == 0))return false;
+  if ((funcret = InitTag()) != FUNC_OK)return FUNC_FALSE;
+  if ((SampRate_Y_H == 0) || (SampRate_Y_V == 0))return FUNC_FALSE;
+  //智能画图初始化
   AI_Drow_Init();
-  funcret = Decode(screenDrawPixel);//解码并逐行画点
+  //解码并逐行画点
+  funcret = Decode(screenDrawPixel);
   return funcret;
 }

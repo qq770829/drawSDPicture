@@ -1,6 +1,6 @@
 /*!
  * @file SD.ino
- * @brief 从SD卡上读取bmp/jpg/jpeg格式图片并显示在屏幕上，bmp支持颜色深度16位/24位/32位，jpg只支持JFIF格式用windows的画图打开然后保存一下,就是这个格式了。
+ * @brief 从SD卡上读取bmp/jpg/jpeg格式图片并显示在屏幕上，bmp支持16位/24位/32位，jpg只支持JFIF格式用windows的画图打开然后保存一下,就是这个格式了
  * @n 本示例支持的主板有ESP8266
  * @copyright  Copyright (c) 2010 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @licence     The MIT License (MIT)
@@ -17,10 +17,10 @@
 //自定义通信引脚
 /*M0*/
 #if defined ARDUINO_SAM_ZERO
-#define TFT_DC  7
-#define TFT_CS  5
+#define TFT_DC  6
+#define TFT_CS  4
 #define TFT_RST 9
-#define TFT_SD  6
+#define TFT_SD  3
 /*ESP32 and ESP8266*/
 #elif defined(ESP32) || defined(ESP8266)
 #define TFT_DC  D3
@@ -82,22 +82,22 @@ char str[32];
 
 void loop()
 {
-  /*设置屏幕颜色*/
-  screen.fillScreen(COLOR_RGB565_PURPLE);
+  /*设置屏幕颜色为蓝色*/
+  screen.fillScreen(COLOR_RGB565_BLUE);
 
   /**
    * @brief 解码函数，通过调用画点函数，显示sd卡上的jpg/bmp图片
-   * @param filename 要打开的SD卡文件名及路径
+   * @param filename 要打开的SD卡文件名及路径（由于SD.open的限制，名称不能太长）
    * @param sx 开始显示的x坐标
    * @param sy 开始显示的y坐标
    * @param ex 结束显示的x坐标
    * @param ey 结束显示的y坐标
    * @param screenDrawPixel 画点函数名
    */
-  drawSDPicture(/*filename=*/"picture/ColorImage/219x220.jpg",/*sx=*/0,/*sy=*/0,/*ex=*/240,/*ey=*/240,/*screenDrawPixel=*/screenDrawPixel);
+  drawSDPicture(/*filename=*/"picture/240x240.jpg",/*sx=*/0,/*sy=*/0,/*ex=*/240,/*ey=*/240,/*screenDrawPixel=*/screenDrawPixel);
 
   /*
-  *SD.open的mode参数
+  *SD.open函数可设置的mode参数
   *FILE_READ: 打开文件进行读取，从文件的开头开始
   *FILE_WRITE: 打开文件进行读写，从文件末尾开始
   */
@@ -105,12 +105,12 @@ void loop()
   File myDir = SD.open(/*directory name=*/"picture/Icon/",/*mode=*/FILE_READ);
   if(myDir)
   {
-    /*设置屏幕颜色*/
+    /*设置屏幕颜色为白色*/
     screen.fillScreen(COLOR_RGB565_WHITE);
-    //每隔32像素显示一个图标，直到铺满屏幕或显示完所有图标
-    for(uint16_t y = 10; y<screen.height()-32; y+=60)
+    //每隔32个像素显示一个图标，直到铺满屏幕或显示完所有图标
+    for(uint16_t y = 10; y<screen.height()-32; y+=60)//y坐标
     {
-      for(uint16_t x = 10; x<screen.width()-32; x+=60)
+      for(uint16_t x = 10; x<screen.width()-32; x+=60)//x坐标
       {
         //读取目录中下一个文件信息
         File entry = myDir.openNextFile();
@@ -126,21 +126,20 @@ void loop()
         drawSDPicture(/*filename=*/str,/*sx=*/x,/*sy=*/y,/*ex=*/x+32,/*ey=*/y+32,/*screenDrawPixel=*/screenDrawPixel);
       }
     }
-  }
-  else Serial.println("dir open fail");
-  
 quit:
-  myDir.close();
+    myDir.close();
+  }
+  else
+  {
+    Serial.println("dir open fail");
+  }
+
   delay(1000);
 }
 
 //供解码函数调用，该函数的功能是在屏幕上画一个像素点
 void screenDrawPixel(int16_t x, int16_t y, uint16_t color)
 {
-  //开始画点
-  screen.startWrite();
   //屏幕画点
-  screen.writePixel(x, y, color);
-  //退出画点
-  screen.endWrite();
+  screen.writePixel(x,y,color);
 }
