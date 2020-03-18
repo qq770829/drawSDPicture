@@ -8,4 +8,4 @@ Leonardo           |              |              |      √      |
 mPython/ESP32      |      √       |              |             | 
 ESP8266            |      √       |              |             | 
 M0                 |      √       |              |             | 
-micro:bit          |      √       |              |             | 
+micro:bit          |              |              |      √      | 
