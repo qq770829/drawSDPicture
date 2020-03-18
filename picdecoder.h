@@ -122,27 +122,27 @@ typedef RGBQUAD * LPRGBQUAD;//彩色表
 
 
 //BMP解码函数
-bool bmpDecode( uint8_t *filename, void (*screenDrawPixel)(short,short,uint16_t));
+bool bmpDecode( uint8_t *filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t));
 
 
 //JPEG 解码函数
-int jpgDecode(uint8_t* filename, void (*screenDrawPixel)(short,short,uint16_t));
+int jpgDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t));
 int  InitTag(void);
 void InitTable(void);              //初始化数据表
-int  Decode(void (*screenDrawPixel)(short,short,uint16_t));//解码
+int  Decode(void (*screenDrawPixel)(int16_t,int16_t,uint16_t));//解码
 int  DecodeMCUBlock(void);
 int  HufBlock(uint8_t dchufindex,uint8_t achufindex);//哈夫曼解码
 int  DecodeElement(void);            //解码一个像素
-void IQtIZzMCUComponent(short flag);       //反量化
-void IQtIZzBlock(short  *s,short * d,short flag);
-void GetYUV(short flag);     //色彩转换的实现,得到色彩空间数据
-void StoreBuffer(void (*screenDrawPixel)(short,short,uint16_t));
+void IQtIZzMCUComponent(int16_t flag);       //反量化
+void IQtIZzBlock(int16_t  *s,int16_t * d,int16_t flag);
+void GetYUV(int16_t flag);     //色彩转换的实现,得到色彩空间数据
+void StoreBuffer(void (*screenDrawPixel)(int16_t,int16_t,uint16_t));
 
 uint8_t ReadByte(void);             //从文件里面读取一个字节出来
 void Initialize_Fast_IDCT(void); //初始化反离散傅立叶变换
 void Fast_IDCT(int * block);   //快速反离散傅立叶变换
 void idctrow(int * blk);
 void idctcol(int * blk);
-bool drawSDPicture(const char* filename,uint16_t sx,uint16_t sy,uint16_t ex,uint16_t ey, void (*screenDrawPixel)(short,short,uint16_t));//智能显示图片
+bool drawSDPicture(const char* filename,uint16_t sx,uint16_t sy,uint16_t ex,uint16_t ey, void (*screenDrawPixel)(int16_t,int16_t,uint16_t));//智能显示图片
 uint8_t pictype(uint8_t* filename); //判断图片类型
 #endif

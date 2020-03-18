@@ -17,9 +17,9 @@
 //自定义通信引脚
 /*M0*/
 #if defined ARDUINO_SAM_ZERO
-#define TFT_DC  6
-#define TFT_CS  4
-#define TFT_RST 9
+#define TFT_DC  7
+#define TFT_CS  5
+#define TFT_RST 6
 #define TFT_SD  3
 /*ESP32 and ESP8266*/
 #elif defined(ESP32) || defined(ESP8266)

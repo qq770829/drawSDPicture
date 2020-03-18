@@ -27,32 +27,32 @@ typedef struct
 PIC_POS PICINFO;//图像位置信息
 
 //在JPEG函数里面用到的变量
-short     SampRate_Y_H, SampRate_Y_V;
-short     SampRate_U_H, SampRate_U_V;
-short     SampRate_V_H, SampRate_V_V;
-short     H_YtoU, V_YtoU, H_YtoV, V_YtoV;
-short     Y_in_MCU, U_in_MCU, V_in_MCU;
+int16_t     SampRate_Y_H, SampRate_Y_V;
+int16_t     SampRate_U_H, SampRate_U_V;
+int16_t     SampRate_V_H, SampRate_V_V;
+int16_t     H_YtoU, V_YtoU, H_YtoV, V_YtoV;
+int16_t     Y_in_MCU, U_in_MCU, V_in_MCU;
 unsigned char* lp;//取代lpJpegBuf
-short     qt_table[3][64];
-short     comp_num;
+int16_t     qt_table[3][64];
+int16_t     comp_num;
 uint8_t      comp_index[3];
 uint8_t        YDcIndex, YAcIndex, UVDcIndex, UVAcIndex;
 uint8_t      HufTabIndex;
-short* YQtTable, * UQtTable, * VQtTable;
-short       code_pos_table[4][16], code_len_table[4][16];
-unsigned short  code_value_table[4][256];
-unsigned short  huf_max_value[4][16], huf_min_value[4][16];
-short     BitPos, CurByte;//byte的第几位,当前byte
-short     rrun, vvalue;
-short     MCUBuffer[10 * 64];
-short     QtZzMCUBuffer[10 * 64];
-short     BlockBuffer[64];
-short     ycoef, ucoef, vcoef;
+int16_t* YQtTable, * UQtTable, * VQtTable;
+int16_t       code_pos_table[4][16], code_len_table[4][16];
+unsigned int16_t  code_value_table[4][256];
+unsigned int16_t  huf_max_value[4][16], huf_min_value[4][16];
+int16_t     BitPos, CurByte;//byte的第几位,当前byte
+int16_t     rrun, vvalue;
+int16_t     MCUBuffer[10 * 64];
+int16_t     QtZzMCUBuffer[10 * 64];
+int16_t     BlockBuffer[64];
+int16_t     ycoef, ucoef, vcoef;
 bool      IntervalFlag;
-short     interval = 0;
-short     Y[4 * 64], U[4 * 64], V[4 * 64];
+int16_t     interval = 0;
+int16_t     Y[4 * 64], U[4 * 64], V[4 * 64];
 unsigned int       sizei, sizej;
-short       restart;
+int16_t       restart;
 
 long* iclp;
 //反Z字形编码表
@@ -113,7 +113,7 @@ inline uint8_t IsElementOk(uint16_t x, uint16_t y, uint8_t chg)
 //(sx,sy) :开始显示的坐标点
 //(ex,ey) :结束显示的坐标点
 //图片会在开始和结束的坐标点范围内显示
-bool drawSDPicture(const char* filename, uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey,void (*screenDrawPixel)(short,short,uint16_t))
+bool drawSDPicture(const char* filename, uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey,void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
 {
   //窗口大小
   screenWidth = ex, screenHeight = ey;
@@ -160,7 +160,7 @@ bool drawSDPicture(const char* filename, uint16_t sx, uint16_t sy, uint16_t ex, 
 }
 
 //解码这个BMP文件
-bool bmpDecode(uint8_t* filename, void (*screenDrawPixel)(short,short,uint16_t))
+bool bmpDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
 {
   uint16_t count;
   uint8_t res;
@@ -332,16 +332,16 @@ int InitTag(void)
 {
   bool finish = false;
   uint8_t id;
-  short  llength;
-  short  i, j, k;
-  short  huftab1, huftab2;
-  short  huftabindex;
+  int16_t  llength;
+  int16_t  i, j, k;
+  int16_t  huftab1, huftab2;
+  int16_t  huftabindex;
   uint8_t hf_table_index;
   uint8_t qt_table_index;
   uint8_t comnum;//最长为256个字节
 
   unsigned char* lptemp;
-  short  colorount;
+  int16_t  colorount;
 
   lp = jpg_buffer + 2;//跳过两个字节SOI(0xFF，0xD8 Start of Image)
 //  lp-=P_Cal(lp);
@@ -369,13 +369,13 @@ int InitTag(void)
       //d_buffer里面至少有有512个字节的余度,这里最大用到128个字节
       if (llength < 80)         //精度为 8 bit
       {
-        for (i = 0; i < 64; i++)qt_table[qt_table_index][i] = (short)*(lptemp++);
+        for (i = 0; i < 64; i++)qt_table[qt_table_index][i] = (int16_t)*(lptemp++);
       }
       else              //精度为 16 bit
       {
-        for (i = 0; i < 64; i++)qt_table[qt_table_index][i] = (short)*(lptemp++);
+        for (i = 0; i < 64; i++)qt_table[qt_table_index][i] = (int16_t)*(lptemp++);
         qt_table_index = (*(lptemp++)) & 0x0f;
-        for (i = 0; i < 64; i++)qt_table[qt_table_index][i] = (short)*(lptemp++);
+        for (i = 0; i < 64; i++)qt_table[qt_table_index][i] = (int16_t)*(lptemp++);
       }
       lp += llength;  //跳过量化表
       //lp-=P_Cal(lp);
@@ -396,34 +396,34 @@ int InitTag(void)
         comp_index[0] = *(lp + 8);      //component id (1 = Y, 2 = Cb, 3 = Cr, 4 = I, 5 = Q)
         SampRate_Y_H = (*(lp + 9)) >> 4;  //水平采样系数
         SampRate_Y_V = (*(lp + 9)) & 0x0f;//垂直采样系数
-        YQtTable = (short*)qt_table[*(lp + 10)];//通过量化表号取得量化表地址
+        YQtTable = (int16_t*)qt_table[*(lp + 10)];//通过量化表号取得量化表地址
 
         comp_index[1] = *(lp + 11);        //component id
         SampRate_U_H = (*(lp + 12)) >> 4;      //水平采样系数
         SampRate_U_V = (*(lp + 12)) & 0x0f;    //垂直采样系数
-        UQtTable = (short*)qt_table[*(lp + 13)];//通过量化表号取得量化表地址
+        UQtTable = (int16_t*)qt_table[*(lp + 13)];//通过量化表号取得量化表地址
 
         comp_index[2] = *(lp + 14);        //component id
         SampRate_V_H = (*(lp + 15)) >> 4;      //水平采样系数
         SampRate_V_V = (*(lp + 15)) & 0x0f;    //垂直采样系数
-        VQtTable = (short*)qt_table[*(lp + 16)];//通过量化表号取得量化表地址
+        VQtTable = (int16_t*)qt_table[*(lp + 16)];//通过量化表号取得量化表地址
       }
       else                     //component id
       {
         comp_index[0] = *(lp + 8);
         SampRate_Y_H = (*(lp + 9)) >> 4;
         SampRate_Y_V = (*(lp + 9)) & 0x0f;
-        YQtTable = (short*)qt_table[*(lp + 10)];//灰度图的量化表都一样
+        YQtTable = (int16_t*)qt_table[*(lp + 10)];//灰度图的量化表都一样
 
         comp_index[1] = *(lp + 8);
         SampRate_U_H = 1;
         SampRate_U_V = 1;
-        UQtTable = (short*)qt_table[*(lp + 10)];
+        UQtTable = (int16_t*)qt_table[*(lp + 10)];
 
         comp_index[2] = *(lp + 8);
         SampRate_V_H = 1;
         SampRate_V_V = 1;
-        VQtTable = (short*)qt_table[*(lp + 10)];
+        VQtTable = (int16_t*)qt_table[*(lp + 10)];
       }
       lp += llength;
       jpg_seek(jpg_buffer, &lp);
@@ -432,13 +432,13 @@ int InitTag(void)
       llength = MAKEWORD(*(lp + 1), *lp);//长度 (高字节, 低字节)
       if (llength < 0xd0)       // Huffman Table信息 (1 uint8_t)
       {
-        huftab1 = (short)(*(lp + 2)) >> 4;     //huftab1=0,1(HT 类型,0 = DC 1 = AC)
-        huftab2 = (short)(*(lp + 2)) & 0x0f;   //huftab2=0,1(HT 号  ,0 = Y  1 = UV)
+        huftab1 = (int16_t)(*(lp + 2)) >> 4;     //huftab1=0,1(HT 类型,0 = DC 1 = AC)
+        huftab2 = (int16_t)(*(lp + 2)) & 0x0f;   //huftab2=0,1(HT 号  ,0 = Y  1 = UV)
         huftabindex = huftab1 * 2 + huftab2;   //0 = YDC 1 = UVDC 2 = YAC 3 = UVAC
         lptemp = lp + 3;//!!!
         //在这里可能出现余度不够,多于512字节,则会导致出错!!!!
         for (i = 0; i < 16; i++)             //16 bytes: 长度是 1..16 代码的符号数
-          code_len_table[huftabindex][i] = (short)(*(lptemp++));//码长为i的码字个数
+          code_len_table[huftabindex][i] = (int16_t)(*(lptemp++));//码长为i的码字个数
         j = 0;
         for (i = 0; i < 16; i++)       //得出HT的所有码字的对应值
         {
@@ -447,7 +447,7 @@ int InitTag(void)
             k = 0;
             while (k < code_len_table[huftabindex][i])
             {
-              code_value_table[huftabindex][k + j] = (short)(*(lptemp++));//最可能的出错地方
+              code_value_table[huftabindex][k + j] = (int16_t)(*(lptemp++));//最可能的出错地方
               k++;
             }
             j += k;
@@ -482,14 +482,14 @@ int InitTag(void)
         jpg_seek(jpg_buffer, &lp);
         while (hf_table_index != 0xff)
         {
-          huftab1 = (short)hf_table_index >> 4;     //huftab1=0,1
-          huftab2 = (short)hf_table_index & 0x0f;   //huftab2=0,1
+          huftab1 = (int16_t)hf_table_index >> 4;     //huftab1=0,1
+          huftab2 = (int16_t)hf_table_index & 0x0f;   //huftab2=0,1
           huftabindex = huftab1 * 2 + huftab2;
           lptemp = lp + 1;
           colorount = 0;
           for (i = 0; i < 16; i++)
           {
-            code_len_table[huftabindex][i] = (short)(*(lptemp++));
+            code_len_table[huftabindex][i] = (int16_t)(*(lptemp++));
             colorount += code_len_table[huftabindex][i];
           }
           colorount += 17;
@@ -501,7 +501,7 @@ int InitTag(void)
               k = 0;
               while (k < code_len_table[huftabindex][i])
               {
-                code_value_table[huftabindex][k + j] = (short)(*(lptemp++));//最可能出错的地方,余度不够
+                code_value_table[huftabindex][k + j] = (int16_t)(*(lptemp++));//最可能出错的地方,余度不够
                 k++;
               }
               j += k;
@@ -587,7 +587,7 @@ int InitTag(void)
 //初始化量化表，全部清零
 void InitTable(void)
 {
-  short i, j;
+  int16_t i, j;
   sizei = sizej = 0;
   PICINFO.ImgWidth = PICINFO.ImgHeight = 0;
   rrun = vvalue = 0;
@@ -633,7 +633,7 @@ void InitTable(void)
 //          IQtIZzMCUComponent()   反量化、反DCT
 //          GetYUV()               Get Y U V
 //          StoreBuffer()          YUV to RGB
-int Decode(void (*screenDrawPixel)(short,short,uint16_t))
+int Decode(void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
 {
   int funcret;
   Y_in_MCU = SampRate_Y_H * SampRate_Y_V;//YDU YDU YDU YDU
@@ -670,12 +670,12 @@ int Decode(void (*screenDrawPixel)(short,short,uint16_t))
 }
 // 入口 QtZzMCUBuffer 出口 Y[] U[] V[]
 //得到YUV色彩空间
-void  GetYUV(short flag)
+void  GetYUV(int16_t flag)
 {
-  short H, VV;
-  short i, j, k, h;
-  short* buf = NULL;
-  short* pQtZzMCU = NULL;
+  int16_t H, VV;
+  int16_t i, j, k, h;
+  int16_t* buf = NULL;
+  int16_t* pQtZzMCU = NULL;
   switch (flag)
   {
   case 0://亮度分量
@@ -705,9 +705,9 @@ void  GetYUV(short flag)
 }
 
 //将解出的字按RGB形式存储 lpbmp (BGR),(BGR) ......入口Y[] U[] V[] 出口lpPtr
-void StoreBuffer(void (*screenDrawPixel)(short,short,uint16_t))
+void StoreBuffer(void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
 {
-  short i = 0, j = 0;
+  int16_t i = 0, j = 0;
   unsigned char R, G, B;
   int y, u, v, rr, gg, bb;
   uint16_t color;
@@ -763,8 +763,8 @@ void StoreBuffer(void (*screenDrawPixel)(short,short,uint16_t))
 //Huffman Decode   MCU 出口 MCUBuffer  入口Blockbuffer[  ]
 int DecodeMCUBlock(void)
 {
-  short* lpMCUBuffer;
-  short i, j;
+  int16_t* lpMCUBuffer;
+  int16_t i, j;
   int funcret;
   if (IntervalFlag)//差值复位
   {
@@ -831,8 +831,8 @@ int DecodeMCUBlock(void)
 //Huffman Decode （8*8） DU   出口 Blockbuffer[ ] 入口 vvalue
 int HufBlock(uint8_t dchufindex, uint8_t achufindex)
 {
-  short count = 0;
-  short i;
+  int16_t count = 0;
+  int16_t i;
   int funcret;
   //dc
   HufTabIndex = dchufindex;
@@ -863,8 +863,8 @@ int HufBlock(uint8_t dchufindex, uint8_t achufindex)
 int DecodeElement()
 {
   int thiscode, tempcode;
-  unsigned short temp, valueex;
-  short codelen;
+  unsigned int16_t temp, valueex;
+  int16_t codelen;
   uint8_t hufexbyte, runsize, tempsize, sign;
   uint8_t newbyte, lastbyte;
 
@@ -913,7 +913,7 @@ int DecodeElement()
   }  //while
   temp = thiscode - huf_min_value[HufTabIndex][codelen - 1] + code_pos_table[HufTabIndex][codelen - 1];
   hufexbyte = (uint8_t)code_value_table[HufTabIndex][temp];
-  rrun = (short)(hufexbyte >> 4);  //一个字节中，高四位是其前面的零的个数。
+  rrun = (int16_t)(hufexbyte >> 4);  //一个字节中，高四位是其前面的零的个数。
   runsize = hufexbyte & 0x0f;    //后四位为后面字的尺寸
   if (runsize == 0)
   {
@@ -948,17 +948,17 @@ int DecodeElement()
   {
     valueex = valueex ^ 0xffff;
     temp = 0xffff << runsize;
-    vvalue = -(short)(valueex ^ temp);
+    vvalue = -(int16_t)(valueex ^ temp);
   }
   return FUNC_OK;
 }
 //反量化MCU中的每个组件   入口 MCUBuffer 出口 QtZzMCUBuffer
-void IQtIZzMCUComponent(short flag)
+void IQtIZzMCUComponent(int16_t flag)
 {
-  short H, VV;
-  short i, j;
-  short* pQtZzMCUBuffer = NULL;
-  short* pMCUBuffer = NULL;
+  int16_t H, VV;
+  int16_t i, j;
+  int16_t* pQtZzMCUBuffer = NULL;
+  int16_t* pMCUBuffer = NULL;
 
   switch (flag)
   {
@@ -987,14 +987,14 @@ void IQtIZzMCUComponent(short flag)
 }
 //要量化的字
 //反量化 8*8 DU
-void IQtIZzBlock(short* s, short* d, short flag)
+void IQtIZzBlock(int16_t* s, int16_t* d, int16_t flag)
 {
-  short i, j;
-  short tag;
-  short* pQt = NULL;
+  int16_t i, j;
+  int16_t tag;
+  int16_t* pQt = NULL;
   int buffer2[8][8];
   int* buffer1;
-  short offset;
+  int16_t offset;
 
   switch (flag)
   {
@@ -1027,7 +1027,7 @@ void IQtIZzBlock(short* s, short* d, short flag)
 //快速反DCT
 void Fast_IDCT(int* block)
 {
-  short i;
+  int16_t i;
   for (i = 0; i < 8; i++)idctrow(block + 8 * i);
   for (i = 0; i < 8; i++)idctcol(block + i);
 }
@@ -1046,7 +1046,7 @@ uint8_t ReadByte(void)
 //初始化快速反DCT
 void Initialize_Fast_IDCT(void)
 {
-  short i;
+  int16_t i;
 
   iclp = iclip + 512;
   for (i = -512; i < 512; i++)
@@ -1155,7 +1155,7 @@ uint8_t pictype(uint8_t* filename)
 }
 
 //jpg图片解码显示
-int jpgDecode(uint8_t* filename, void (*screenDrawPixel)(short,short,uint16_t))
+int jpgDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
 {
 
 
