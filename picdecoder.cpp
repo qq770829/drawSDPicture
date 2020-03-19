@@ -5,75 +5,29 @@ File picfile;  //定义SD库的File类型变量为全局变量，用于指向打
 
 
 //全局变量声明,BMP和JPEG共用
-int screenWidth = 0, screenHeight = 0;//屏幕窗口大小
-
+int32_t screenWidth = 0, screenHeight = 0;//屏幕窗口大小
+uint8_t jpg_buffer[JD_SZBUF];//数据缓存区
 //图像信息
 typedef struct
 {
-  unsigned int ImgWidth; //图像的实际宽度和高度
-  unsigned int ImgHeight;
+  uint32_t ImgWidth; //图像的实际宽度和高度
+  uint32_t ImgHeight;
 
-  unsigned int Div_Fac;  //缩放系数 (扩大了10000倍的)
+  uint32_t Div_Fac;  //缩放系数 (扩大了10000倍的)
 
-  unsigned int S_Height; //设定的高度和宽度
-  unsigned int S_Width;
+  uint32_t S_Height; //设定的高度和宽度
+  uint32_t S_Width;
 
-  unsigned int S_XOFF;   //x轴和y轴的偏移量
-  unsigned int S_YOFF;
+  uint32_t S_XOFF;   //x轴和y轴的偏移量
+  uint32_t S_YOFF;
 
-  unsigned int staticx;  //当前显示到的ｘｙ坐标
-  unsigned int staticy;
+  uint32_t staticx;  //当前显示到的ｘｙ坐标
+  uint32_t staticy;
 } PIC_POS;
 PIC_POS PICINFO;//图像位置信息
 
-//在JPEG函数里面用到的变量
-int16_t     SampRate_Y_H, SampRate_Y_V;
-int16_t     SampRate_U_H, SampRate_U_V;
-int16_t     SampRate_V_H, SampRate_V_V;
-int16_t     H_YtoU, V_YtoU, H_YtoV, V_YtoV;
-int16_t     Y_in_MCU, U_in_MCU, V_in_MCU;
-unsigned char* lp;//取代lpJpegBuf
-int16_t     qt_table[3][64];
-int16_t     comp_num;
-uint8_t      comp_index[3];
-uint8_t        YDcIndex, YAcIndex, UVDcIndex, UVAcIndex;
-uint8_t      HufTabIndex;
-int16_t* YQtTable, * UQtTable, * VQtTable;
-int16_t       code_pos_table[4][16], code_len_table[4][16];
-unsigned int16_t  code_value_table[4][256];
-unsigned int16_t  huf_max_value[4][16], huf_min_value[4][16];
-int16_t     BitPos, CurByte;//byte的第几位,当前byte
-int16_t     rrun, vvalue;
-int16_t     MCUBuffer[10 * 64];
-int16_t     QtZzMCUBuffer[10 * 64];
-int16_t     BlockBuffer[64];
-int16_t     ycoef, ucoef, vcoef;
-bool      IntervalFlag;
-int16_t     interval = 0;
-int16_t     Y[4 * 64], U[4 * 64], V[4 * 64];
-unsigned int       sizei, sizej;
-int16_t       restart;
 
-long* iclp;
-//反Z字形编码表
-const int Zig_Zag[8][8] = { {0,1,5,6,14,15,27,28},
-  {2,4,7,13,16,26,29,42},
-  {3,8,12,17,25,30,41,43},
-  {9,11,18,24,31,40,44,53},
-  {10,19,23,32,39,45,52,54},
-  {20,22,33,38,46,51,55,60},
-  {21,34,37,47,50,56,59,61},
-  {35,36,48,49,57,58,62,63}
-};
-const uint8_t And[9] = { 0,1,3,7,0xf,0x1f,0x3f,0x7f,0xff };
-//数据缓冲区
-uint8_t jpg_buffer[JD_SZBUF];//数据缓存区
-uint8_t SPI_FLASH_BUF[JPEG_WBUF_SIZE];//jpg工作区
-long* iclip = (long*)SPI_FLASH_BUF;
-
-
-
-
+//BMP/JPG共用的函数
 //初始化智能画图
 void AI_Drow_Init(void)
 {
@@ -109,63 +63,21 @@ inline uint8_t IsElementOk(uint16_t x, uint16_t y, uint8_t chg)
   }
   else return 0;
 }
-//FileName:要显示的图片文件  BMP/JPG/JPEG
-//(sx,sy) :开始显示的坐标点
-//(ex,ey) :结束显示的坐标点
-//图片会在开始和结束的坐标点范围内显示
-bool drawSDPicture(const char* filename, uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey,void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
+//判断图片格式
+uint8_t pictype(uint8_t* filename)
 {
-  //窗口大小
-  screenWidth = ex, screenHeight = ey;
-
-  int funcret;//返回值
-  //得到显示方框大小
-  uint8_t fileTpe;
-  int index;
-  for (index = 0; index < 1024; index++)
-    iclip[index] = 0;
-
-  if (ey > sy)PICINFO.S_Height = ey - sy;
-  else PICINFO.S_Height = sy - ey;
-  if (ex > sx)PICINFO.S_Width = ex - sx;
-  else PICINFO.S_Width = sx - ex;
-  //显示区域无效
-  if (PICINFO.S_Height == 0 || PICINFO.S_Width == 0)
-  {
-    PICINFO.S_Height = screenHeight;
-    PICINFO.S_Width = screenWidth;
-    return false;
-  }
-  //显示的开始坐标点
-  PICINFO.S_YOFF = sy;
-  PICINFO.S_XOFF = sx;
-
-  fileTpe = pictype((uint8_t*)filename);  //得到文件的类型
-  if (fileTpe == BMPTYPE)//得到一个BMP图像
-  {
-    funcret = bmpDecode((uint8_t*)filename, screenDrawPixel);
-  }
-  else if (fileTpe == JPGTYPE)//得到JPG/JPEG图片
-  {
-    funcret = jpgDecode((uint8_t*)filename, screenDrawPixel);
-  }
-  else
-  {
-    picfile.close();
-    return false;  //格式不正确!!!
-  }
-  picfile.close();
-  if (funcret == FUNC_OK)return true;//解码成功
-  else return false;   //解码失败
+  if (filename[strlen((const char*)filename) - 1] == 'p'||filename[strlen((const char*)filename) - 1] == 'P') return BMPTYPE;
+  else if(filename[strlen((const char*)filename) - 1] == 'g'||filename[strlen((const char*)filename) - 1] == 'G') return JPGTYPE;
+  DBG("File format error");
+  return FUNC_Err;
 }
-
-//解码这个BMP文件
+//打开BMP图片，解码显示
 bool bmpDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
 {
   uint16_t count;
-  uint8_t res;
+  // uint8_t res;
   uint8_t  rgb, color_byte;
-  unsigned char R, G, B;
+  uint8_t R, G, B;
   uint16_t x, y,color;
   uint16_t uiTemp;    //x轴方向像素计数器
   uint16_t countpix = 0;//记录像素
@@ -176,39 +88,39 @@ bool bmpDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16
   uint8_t  bitype;//判断压缩类型
   BITMAPINFO* pbmp;//存放bmp图片头部所有信息的临时指针
 
-
   picfile = SD.open((const char*)filename, FILE_READ);//打开文件
-
-
-  if(picfile ==NULL)
+  if(!picfile)
   {
-    DBG("this BMP open fail");
+    DBG("open fail");
     return false;
   }
-  picfile.read(jpg_buffer, 1024);//读取一次
+  picfile.read(jpg_buffer, JD_SZBUF);//读取一次
   pbmp = (BITMAPINFO*)jpg_buffer;//得到BMP的头部信息
   (uint8_t*)jpg_buffer;
   count = pbmp->bmfHeader.bfOffBits;        //数据偏移,得到数据段的开始地址
   color_byte = pbmp->bmiHeader.biBitCount / 8;//彩色位 16/24/32
   PICINFO.ImgHeight = pbmp->bmiHeader.biHeight;//得到图片高度
   PICINFO.ImgWidth = pbmp->bmiHeader.biWidth;  //得到图片宽度
+  // DBG(pbmp->bmfHeader.bfOffBits);//从文件开始到位图数据
+  // DBG(pbmp->bmiHeader.biBitCount);//说明象素，1、4、8、16、24、或32
+  // DBG(pbmp->bmiHeader.biWidth);//说明图象的宽度
+  // DBG(pbmp->bmiHeader.biHeight);//说明图象的高度
+  // DBG(pbmp->bmiHeader.biCompression);//说明图象数据压缩的类型
+  
   //水平像素必须是4的倍数!!
   if ((PICINFO.ImgWidth * color_byte) % 4)
     uiTemp = ((PICINFO.ImgWidth * color_byte) / 4 + 1) * 4;
   else
     uiTemp = PICINFO.ImgWidth * color_byte;
-
   AI_Drow_Init();//初始化智能画图
-
-
   //开始解码BMP
-  x = 0;
+  x = 0;  
   y = PICINFO.ImgHeight;
   rgb = 0;
   realy = y * PICINFO.Div_Fac / 10000;
   while (1)
   {
-    while (count < 1024)  //读取一簇512扇区 (SectorsPerClust 每簇扇区数)
+    while (count < JD_SZBUF)  //读取一簇512扇区 (SectorsPerClust 每簇扇区数)
     {
       if (color_byte == 3)   //24位颜色图
       {
@@ -304,10 +216,122 @@ bool bmpDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16
         rgb = 0;
       }
     }
-    picfile.read(jpg_buffer, 1024);//读出
+    picfile.read(jpg_buffer, JD_SZBUF);//读出
+    if(!jpg_buffer)
+    {
+      DBG("read err");
+      return false;
+    }
     count = 0;
   }
-  return true;
+}
+
+/*M0, ESP32 and ESP8266可以支持jpg解码*/
+#if defined ARDUINO_SAM_ZERO || defined(ESP32) || defined(ESP8266)
+//定义在JPEG函数里面用到的变量
+int16_t     SampRate_Y_H, SampRate_Y_V;
+int16_t     SampRate_U_H, SampRate_U_V;
+int16_t     SampRate_V_H, SampRate_V_V;
+int16_t     H_YtoU, V_YtoU, H_YtoV, V_YtoV;
+int16_t     Y_in_MCU, U_in_MCU, V_in_MCU;
+uint8_t* lp;//取代lpJpegBuf
+int16_t     qt_table[3][64];
+int16_t     comp_num;
+uint8_t      comp_index[3];
+uint8_t        YDcIndex, YAcIndex, UVDcIndex, UVAcIndex;
+uint8_t      HufTabIndex;
+int16_t* YQtTable, * UQtTable, * VQtTable;
+int16_t       code_pos_table[4][16], code_len_table[4][16];
+uint16_t  code_value_table[4][256];
+uint16_t  huf_max_value[4][16], huf_min_value[4][16];
+int16_t     BitPos, CurByte;//byte的第几位,当前byte
+int16_t     rrun, vvalue;
+int16_t     MCUBuffer[10 * 64];
+int16_t     QtZzMCUBuffer[10 * 64];
+int16_t     BlockBuffer[64];
+int16_t     ycoef, ucoef, vcoef;
+bool      IntervalFlag;
+int16_t     interval = 0;
+int16_t     Y[4 * 64], U[4 * 64], V[4 * 64];
+uint32_t       sizei, sizej;
+int16_t       restart;
+
+long* iclp;
+//反Z字形编码表
+const int32_t Zig_Zag[8][8] = { {0,1,5,6,14,15,27,28},
+  {2,4,7,13,16,26,29,42},
+  {3,8,12,17,25,30,41,43},
+  {9,11,18,24,31,40,44,53},
+  {10,19,23,32,39,45,52,54},
+  {20,22,33,38,46,51,55,60},
+  {21,34,37,47,50,56,59,61},
+  {35,36,48,49,57,58,62,63}
+};
+const uint8_t And[9] = { 0,1,3,7,0xf,0x1f,0x3f,0x7f,0xff };
+//数据缓冲区
+uint8_t SPI_FLASH_BUF[JPEG_WBUF_SIZE];//jpg工作区
+long* iclip = (long*)SPI_FLASH_BUF;
+
+//FileName:要显示的图片文件  BMP/JPG/JPEG
+//(sx,sy) :开始显示的坐标点
+//(ex,ey) :结束显示的坐标点
+//图片会在开始和结束的坐标点范围内显示
+//(*screenDrawPixel)(int16_t,int16_t,uint16_t):传入的函数指针，用于画点
+bool drawSDPicture(const char* filename, uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey,void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
+{
+  //窗口大小
+  screenWidth = ex, screenHeight = ey;
+
+  int32_t funcret;//返回值
+  //得到显示方框大小
+  uint8_t fileTpe;
+  int32_t index;
+  for (index = 0; index < JD_SZBUF; index++)
+    iclip[index] = 0;
+  if (ey > sy)PICINFO.S_Height = ey - sy;
+  else PICINFO.S_Height = sy - ey;
+  if (ex > sx)PICINFO.S_Width = ex - sx;
+  else PICINFO.S_Width = sx - ex;
+  //显示区域无效
+  if (PICINFO.S_Height == 0 || PICINFO.S_Width == 0)
+  {
+    PICINFO.S_Height = screenHeight;
+    PICINFO.S_Width = screenWidth;
+    DBG("Display area invalid");
+    return false;
+  }
+  //显示的开始坐标点
+  PICINFO.S_YOFF = sy;
+  PICINFO.S_XOFF = sx;
+
+  fileTpe = pictype((uint8_t*)filename);  //得到文件的类型
+  if (fileTpe == BMPTYPE)//得到一个BMP图像
+  {
+    DBG("draw bmp");
+    funcret = bmpDecode((uint8_t*)filename, screenDrawPixel);
+  }
+  else if (fileTpe == JPGTYPE)//得到JPG/JPEG图片
+  {
+    DBG("draw jpg");
+    funcret = jpgDecode((uint8_t*)filename, screenDrawPixel);
+  }
+  else
+  {
+    picfile.close();
+    DBG("format err");
+    return false;  //格式不正确!!!
+  }
+  picfile.close();//关闭SD库对象
+  if (funcret == FUNC_OK)
+  {
+    //DBG("have completed");
+    return true;//解码成功
+  }
+  else
+  {
+    DBG("Decode false");
+    return false;   //解码失败
+  }
 }
 
 //对指针地址进行改变!
@@ -315,20 +339,20 @@ bool bmpDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16
 //返回值:当前指针的减少量.在d_buffer里面自动进行了偏移
 void jpg_seek(uint8_t* pbase, uint8_t** pnow)
 {
-  unsigned int pos;
+  uint32_t pos;
   uint16_t offset;
   offset = *pnow - pbase;//当前的偏移量.
-  if (offset > 1000)//将要结束了,做下一次读取
+  if (offset > JD_SZBUF-24)//将要结束了,做下一次读取
   {
     pos = picfile.position();//得到当前位置
-    picfile.seek(pos -1024 + offset);//因为之前读了1024还没有用完，所以指向没有用到的位置开始读
-    picfile.read(pbase, 1024); //读取1024个字节.
+    picfile.seek(pos -JD_SZBUF + offset);//因为之前读了1024还没有用完，所以指向没有用到的位置开始读
+    picfile.read(pbase, JD_SZBUF); //读取1024个字节.
     *pnow = pbase;//复位
   }
 }
 
 //初始化d_buffer的数据
-int InitTag(void)
+int32_t InitTag(void)
 {
   bool finish = false;
   uint8_t id;
@@ -340,7 +364,7 @@ int InitTag(void)
   uint8_t qt_table_index;
   uint8_t comnum;//最长为256个字节
 
-  unsigned char* lptemp;
+  uint8_t* lptemp;
   int16_t  colorount;
 
   lp = jpg_buffer + 2;//跳过两个字节SOI(0xFF，0xD8 Start of Image)
@@ -584,6 +608,7 @@ int InitTag(void)
   } //while
   return FUNC_OK;
 }
+
 //初始化量化表，全部清零
 void InitTable(void)
 {
@@ -628,14 +653,15 @@ void InitTable(void)
   }
   ycoef = ucoef = vcoef = 0;
 }
+
 //调用顺序: Initialize_Fast_IDCT() :初始化
 //          DecodeMCUBlock()       Huffman Decode
 //          IQtIZzMCUComponent()   反量化、反DCT
 //          GetYUV()               Get Y U V
 //          StoreBuffer()          YUV to RGB
-int Decode(void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
+int32_t Decode(void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
 {
-  int funcret;
+  int32_t funcret;
   Y_in_MCU = SampRate_Y_H * SampRate_Y_V;//YDU YDU YDU YDU
   U_in_MCU = SampRate_U_H * SampRate_U_V;//cRDU
   V_in_MCU = SampRate_V_H * SampRate_V_V;//cBDU
@@ -668,6 +694,7 @@ int Decode(void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
   }
   return funcret;
 }
+
 // 入口 QtZzMCUBuffer 出口 Y[] U[] V[]
 //得到YUV色彩空间
 void  GetYUV(int16_t flag)
@@ -708,14 +735,12 @@ void  GetYUV(int16_t flag)
 void StoreBuffer(void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
 {
   int16_t i = 0, j = 0;
-  unsigned char R, G, B;
-  int y, u, v, rr, gg, bb;
+  uint8_t R, G, B;
+  int32_t y, u, v, rr, gg, bb;
   uint16_t color;
   //x,y的实际坐标
   uint16_t realx = sizej;
   uint16_t realy = 0;
-
-
   for (i = 0; i < SampRate_Y_V * 8; i++)
   {
     if ((sizei + i) < PICINFO.ImgHeight)// sizei表示行 sizej 表示列
@@ -738,9 +763,9 @@ void StoreBuffer(void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
           rr = ((y << 8) + 18 * u + 367 * v) >> 8;
           gg = ((y << 8) - 159 * u - 220 * v) >> 8;
           bb = ((y << 8) + 411 * u - 29 * v) >> 8;
-          R = (unsigned char)rr;
-          G = (unsigned char)gg;
-          B = (unsigned char)bb;
+          R = (uint8_t)rr;
+          G = (uint8_t)gg;
+          B = (uint8_t)bb;
           if (rr & 0xffffff00) if (rr > 255) R = 255;
             else if (rr < 0) R = 0;
           if (gg & 0xffffff00) if (gg > 255) G = 255;
@@ -752,6 +777,7 @@ void StoreBuffer(void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
           color |= (G >> 2);
           color = color << 5;
           color |= (B >> 3);
+
           screenDrawPixel(realx + PICINFO.S_XOFF, realy + PICINFO.S_YOFF, color);
         }
         else break;
@@ -761,11 +787,11 @@ void StoreBuffer(void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
   }
 }
 //Huffman Decode   MCU 出口 MCUBuffer  入口Blockbuffer[  ]
-int DecodeMCUBlock(void)
+int32_t DecodeMCUBlock(void)
 {
   int16_t* lpMCUBuffer;
   int16_t i, j;
-  int funcret;
+  int32_t funcret;
   if (IntervalFlag)//差值复位
   {
     lp += 2;
@@ -829,11 +855,11 @@ int DecodeMCUBlock(void)
   return FUNC_OK;
 }
 //Huffman Decode （8*8） DU   出口 Blockbuffer[ ] 入口 vvalue
-int HufBlock(uint8_t dchufindex, uint8_t achufindex)
+int32_t HufBlock(uint8_t dchufindex, uint8_t achufindex)
 {
   int16_t count = 0;
   int16_t i;
-  int funcret;
+  int32_t funcret;
   //dc
   HufTabIndex = dchufindex;
   funcret = DecodeElement();
@@ -860,10 +886,10 @@ int HufBlock(uint8_t dchufindex, uint8_t achufindex)
   return FUNC_OK;
 }
 //Huffman 解码  每个元素   出口 vvalue 入口 读文件ReadByte
-int DecodeElement()
+int32_t DecodeElement()
 {
-  int thiscode, tempcode;
-  unsigned int16_t temp, valueex;
+  int32_t thiscode, tempcode;
+  uint16_t temp, valueex;
   int16_t codelen;
   uint8_t hufexbyte, runsize, tempsize, sign;
   uint8_t newbyte, lastbyte;
@@ -992,8 +1018,8 @@ void IQtIZzBlock(int16_t* s, int16_t* d, int16_t flag)
   int16_t i, j;
   int16_t tag;
   int16_t* pQt = NULL;
-  int buffer2[8][8];
-  int* buffer1;
+  int32_t buffer2[8][8];
+  int32_t* buffer1;
   int16_t offset;
 
   switch (flag)
@@ -1016,16 +1042,16 @@ void IQtIZzBlock(int16_t* s, int16_t* d, int16_t flag)
     for (j = 0; j < 8; j++)
     {
       tag = Zig_Zag[i][j];
-      buffer2[i][j] = (int)s[tag] * (int)pQt[tag];
+      buffer2[i][j] = (int32_t)s[tag] * (int32_t)pQt[tag];
     }
-  buffer1 = (int*)buffer2;
+  buffer1 = (int32_t*)buffer2;
   Fast_IDCT(buffer1);//反DCT
   for (i = 0; i < 8; i++)
     for (j = 0; j < 8; j++)
       d[i * 8 + j] = buffer2[i][j] + offset;
 }
 //快速反DCT
-void Fast_IDCT(int* block)
+void Fast_IDCT(int32_t* block)
 {
   int16_t i;
   for (i = 0; i < 8; i++)idctrow(block + 8 * i);
@@ -1053,9 +1079,9 @@ void Initialize_Fast_IDCT(void)
     iclp[i] = (i < -256) ? -256 : ((i > 255) ? 255 : i);
 }
 ////////////////////////////////////////////////////////////////////////
-void idctrow(int* blk)
+void idctrow(int32_t* blk)
 {
-  int x0, x1, x2, x3, x4, x5, x6, x7, x8;
+  int32_t x0, x1, x2, x3, x4, x5, x6, x7, x8;
   //intcut
   if (!((x1 = blk[4] << 11) | (x2 = blk[6]) | (x3 = blk[2]) |
         (x4 = blk[1]) | (x5 = blk[7]) | (x6 = blk[5]) | (x7 = blk[3])))
@@ -1099,15 +1125,15 @@ void idctrow(int* blk)
   blk[7] = (x7 - x1) >> 8;
 }
 //////////////////////////////////////////////////////////////////////////////
-void idctcol(int* blk)
+void idctcol(int32_t* blk)
 {
-  int x0, x1, x2, x3, x4, x5, x6, x7, x8;
+  int32_t x0, x1, x2, x3, x4, x5, x6, x7, x8;
   //intcut
   if (!((x1 = (blk[8 * 4] << 8)) | (x2 = blk[8 * 6]) | (x3 = blk[8 * 2]) |
         (x4 = blk[8 * 1]) | (x5 = blk[8 * 7]) | (x6 = blk[8 * 5]) | (x7 = blk[8 * 3])))
   {
     blk[8 * 0] = blk[8 * 1] = blk[8 * 2] = blk[8 * 3] = blk[8 * 4] = blk[8 * 5]
-                                         = blk[8 * 6] = blk[8 * 7] = iclp[(blk[8 * 0] + 32) >> 6];
+                                           = blk[8 * 6] = blk[8 * 7] = iclp[(blk[8 * 0] + 32) >> 6];
     return;
   }
   x0 = (blk[8 * 0] << 8) + 8192;
@@ -1145,36 +1171,82 @@ void idctcol(int* blk)
   blk[8 * 6] = iclp[(x3 - x2) >> 14];
   blk[8 * 7] = iclp[(x7 - x1) >> 14];
 }
-//判断图片格式
-uint8_t pictype(uint8_t* filename)
-{
-  if (filename[strlen((const char*)filename) - 1] == 'p'||filename[strlen((const char*)filename) - 1] == 'P') return BMPTYPE;
-  else if(filename[strlen((const char*)filename) - 1] == 'g'||filename[strlen((const char*)filename) - 1] == 'G') return JPGTYPE;
-  DBG("File format error");
-  return FUNC_FALSE;
-}
 
-//jpg图片解码显示
-int jpgDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
+//打开jpg图片，解码显示
+int32_t jpgDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
 {
-
 
   picfile = SD.open((const char*)filename, FILE_READ);//打开文件
-
-
-  if (picfile == NULL)
+  if (!picfile)
   {
     DBG("open fail");
-    return FUNC_FALSE;
+    return FUNC_Err;
   }
-  int funcret;
-  picfile.read(jpg_buffer,1024);
+
+  int32_t funcret;//返回值
+  picfile.read(jpg_buffer,JD_SZBUF);
+  //初始化量化表
   InitTable();
-  if ((funcret = InitTag()) != FUNC_OK)return FUNC_FALSE;
-  if ((SampRate_Y_H == 0) || (SampRate_Y_V == 0))return FUNC_FALSE;
+  if ((funcret = InitTag()) != FUNC_OK)return FUNC_Err;
+  if ((SampRate_Y_H == 0) || (SampRate_Y_V == 0))return FUNC_Err;
   //智能画图初始化
   AI_Drow_Init();
   //解码并逐行画点
   funcret = Decode(screenDrawPixel);
   return funcret;
 }
+
+/*AVR系列主板只支持解码bmp图片*/
+#else
+
+//FileName:要显示的图片文件  BMP/JPG/JPEG
+//(sx,sy) :开始显示的坐标点
+//(ex,ey) :结束显示的坐标点
+//图片会在开始和结束的坐标点范围内显示
+//(*screenDrawPixel)(int16_t,int16_t,uint16_t):传入的函数指针，用于画点
+bool drawSDPicture(const char* filename, uint16_t sx, uint16_t sy, uint16_t ex, uint16_t ey,void (*screenDrawPixel)(int16_t,int16_t,uint16_t))
+{
+  //窗口大小
+  screenWidth = ex, screenHeight = ey;
+
+  int32_t funcret;//返回值
+  //得到显示方框大小
+  uint8_t fileTpe;
+  // int32_t index;
+  // for (index = 0; index < JD_SZBUF; index++)
+    // iclip[index] = 0;
+  if (ey > sy)PICINFO.S_Height = ey - sy;
+  else PICINFO.S_Height = sy - ey;
+  if (ex > sx)PICINFO.S_Width = ex - sx;
+  else PICINFO.S_Width = sx - ex;
+  //显示区域无效
+  if (PICINFO.S_Height == 0 || PICINFO.S_Width == 0)
+  {
+    PICINFO.S_Height = screenHeight;
+    PICINFO.S_Width = screenWidth;
+    DBG("Display area invalid");
+    return false;
+  }
+  //显示的开始坐标点
+  PICINFO.S_YOFF = sy;
+  PICINFO.S_XOFF = sx;
+  fileTpe = pictype((uint8_t*)filename);  //得到文件的类型
+  if (fileTpe == BMPTYPE)//得到一个BMP图像
+  {
+    DBG("draw bmp");
+    funcret = bmpDecode((uint8_t*)filename, screenDrawPixel);
+  }
+  else if (fileTpe == JPGTYPE)//得到JPG/JPEG图片
+  {
+    DBG("Unsupported jpg");
+    funcret = FUNC_OK;
+  }
+  picfile.close();//关闭SD库对象
+  if (funcret == FUNC_OK)return true;//解码成功
+  else
+  {
+    DBG("BMPDecode false");
+    return false;   //解码失败
+  }
+}
+#endif

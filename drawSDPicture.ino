@@ -1,7 +1,7 @@
 /*!
  * @file SD.ino
  * @brief 从SD卡上读取bmp/jpg/jpeg格式图片并显示在屏幕上，bmp支持16位/24位/32位，jpg只支持JFIF格式用windows的画图打开然后保存一下,就是这个格式了
- * @n 本示例支持的主板有ESP8266
+ * @n 本示例支持的主板有ESP8266、FireBeetle-M0
  * @copyright  Copyright (c) 2010 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @licence     The MIT License (MIT)
  * @author [YeHangYu](hangyu.ye@dfrobot.com)
@@ -15,7 +15,7 @@
 #include "picdecoder.h"
 
 //自定义通信引脚
-/*M0*/
+/*FireBeetle-M0*/
 #if defined ARDUINO_SAM_ZERO
 #define TFT_DC  7
 #define TFT_CS  5
@@ -31,8 +31,8 @@
 #else
 #define TFT_DC  2
 #define TFT_CS  3
-#define TFT_RST 6
-#define TFT_SD  5
+#define TFT_RST 5
+#define TFT_SD  6
 #endif
 /**
  * @brief Constructor  硬件SPI通信的构造函数
@@ -77,16 +77,14 @@ void setup()
 }
 
 
-//存放读取的目录下图标的文件名
-char str[32];
 
 void loop()
 {
-  /*设置屏幕颜色为蓝色*/
-  screen.fillScreen(COLOR_RGB565_BLUE);
+  /*设置屏幕颜色为白色*/
+  screen.fillScreen(COLOR_RGB565_WHITE);
 
   /**
-   * @brief 解码函数，通过调用画点函数，显示sd卡上的jpg/bmp图片
+   * @brief 解码函数，通过调用画点函数显示sd卡上的bmp图片，FireBeetle-M0，ESP32和ESP8266可以显示jpg图片
    * @param filename 要打开的SD卡文件名及路径（由于SD.open的限制，名称不能太长）
    * @param sx 开始显示的x坐标
    * @param sy 开始显示的y坐标
@@ -94,19 +92,24 @@ void loop()
    * @param ey 结束显示的y坐标
    * @param screenDrawPixel 画点函数名
    */
-  drawSDPicture(/*filename=*/"picture/240x240.jpg",/*sx=*/0,/*sy=*/0,/*ex=*/240,/*ey=*/240,/*screenDrawPixel=*/screenDrawPixel);
+  drawSDPicture(/*filename=*/"picture/219x220.jpg",/*sx=*/0,/*sy=*/0,/*ex=*/240,/*ey=*/240,/*screenDrawPixel=*/screenDrawPixel);
+  drawSDPicture(/*filename=*/"picture/RGB565.bmp",/*sx=*/45,/*sy=*/45,/*ex=*/195,/*ey=*/195,/*screenDrawPixel=*/screenDrawPixel);
 
+  /*设置屏幕颜色为白色*/
+  screen.fillScreen(COLOR_RGB565_WHITE);
+
+  //批量显示图标，大容量主板显示任意数量的图标
+  /*FireBeetle-M0，ESP32和ESP8266*/
+#if defined ARDUINO_SAM_ZERO || defined(ESP32) || defined(ESP8266)
   /*
   *SD.open函数可设置的mode参数
   *FILE_READ: 打开文件进行读取，从文件的开头开始
   *FILE_WRITE: 打开文件进行读写，从文件末尾开始
   */
-  //批量显示图标
   File myDir = SD.open(/*directory name=*/"picture/Icon/",/*mode=*/FILE_READ);
   if(myDir)
   {
-    /*设置屏幕颜色为白色*/
-    screen.fillScreen(COLOR_RGB565_WHITE);
+    char str[32];//存放读取的目录下图标的文件名
     //每隔32个像素显示一个图标，直到铺满屏幕或显示完所有图标
     for(uint16_t y = 10; y<screen.height()-32; y+=60)//y坐标
     {
@@ -133,7 +136,17 @@ quit:
   {
     Serial.println("dir open fail");
   }
-
+  /*AVR系列主板*/
+#else
+  drawSDPicture("picture/Icon/1.bmp",0,0,32,32,screenDrawPixel);
+  drawSDPicture("picture/Icon/2.bmp",32,32,64,64,screenDrawPixel);
+  drawSDPicture("picture/Icon/3.bmp",64,64,96,96,screenDrawPixel);
+  drawSDPicture("picture/Icon/4.bmp",96,96,128,128,screenDrawPixel);
+  drawSDPicture("picture/Icon/5.bmp",128,128,160,160,screenDrawPixel);
+  drawSDPicture("picture/Icon/6.bmp",160,160,192,192,screenDrawPixel);
+  drawSDPicture("picture/Icon/7.bmp",192,192,224,224,screenDrawPixel);
+  drawSDPicture("picture/Icon/8.bmp",224,224,240,240,screenDrawPixel);
+#endif
   delay(1000);
 }
 

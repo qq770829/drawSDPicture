@@ -23,19 +23,21 @@
 #endif
 
 
+
 /*M0*/
 #if defined ARDUINO_SAM_ZERO
 #define	JD_SZBUF		1024	//读图片的缓冲区大小
-#define JPEG_WBUF_SIZE  4048 	//定义jpg工作区数组大小,最少应不小于3092字节
+#define JPEG_WBUF_SIZE  4096 	//定义jpg工作区数组大小,最少应不小于3092字节
 /*ESP32 and ESP8266*/
 #elif defined(ESP32) || defined(ESP8266)
 #define	JD_SZBUF		1024	//读图片的缓冲区大小
-#define JPEG_WBUF_SIZE  4048 	//定义jpg工作区数组大小,最少应不小于3092字节
+#define JPEG_WBUF_SIZE  4096 	//定义jpg工作区数组大小,最少应不小于3092字节
 /*AVR系列主板*/
 #else
-#define	JD_SZBUF		1024	//读图片的缓冲区大小
+#define	JD_SZBUF		512 	//读图片的缓冲区大小
 #define JPEG_WBUF_SIZE  0 	    //无法完成jpg解码
 #endif
+
 
 
 //jpg解码使用的宏定义
@@ -55,14 +57,14 @@
 #define W7 565  /* 2048*sqrt(2)*cos(7*pi/16) */
 
 #define MAKEWORD(a, b)      ((uint16_t)(((uint8_t)(a)) | ((uint16_t)((uint8_t)(b))) << 8))
-#define MAKELONG(a, b)      ((int)(((uint16_t)(a)) | ((unsigned int)((uint16_t)(b))) << 16))
+#define MAKELONG(a, b)      ((int32_t)(((uint16_t)(a)) | ((uint32_t)((uint16_t)(b))) << 16))
 #define LOWORD(l)           ((uint16_t)(l))
-#define HIWORD(l)           ((uint16_t)(((unsigned int)(l) >> 16) & 0xFFFF))
+#define HIWORD(l)           ((uint16_t)(((uint32_t)(l) >> 16) & 0xFFFF))
 #define LOBYTE(w)           ((uint8_t)(w))
 #define HIBYTE(w)           ((uint8_t)(((uint16_t)(w) >> 8) & 0xFF))
 
 //函数返回值定义
-#define FUNC_FALSE 0
+#define FUNC_Err 0
 #define FUNC_OK 1
 #define FUNC_FILE_ERROR 2
 #define FUNC_FORMAT_ERROR 3
@@ -78,37 +80,38 @@
 //BMP信息头
 typedef  struct
 {
-  unsigned int biSize ;       //说明BITMAPINFOHEADER结构所需要的字数。
-  int  biWidth ;              //说明图象的宽度，以象素为单位
-  int  biHeight ;             //说明图象的高度，以象素为单位
+  uint32_t biSize ;       //说明BITMAPINFOHEADER结构所需要的字数。
+  int32_t  biWidth ;              //说明图象的宽度，以象素为单位
+  int32_t  biHeight ;             //说明图象的高度，以象素为单位
   uint16_t  biPlanes ;        //为目标设备说明位面数，其值将总是被设为1
   uint16_t  biBitCount ;      //说明比特数/象素，其值为1、4、8、16、24、或32
-  unsigned int biCompression ;//说明图象数据压缩的类型。其值可以是下述值之一：
-  unsigned int biSizeImage ;  //说明图象的大小，以字节为单位。当用BI_RGB格式时，可设置为0
-  int  biXPelsPerMeter ;      //说明水平分辨率，用象素/米表示
-  int  biYPelsPerMeter ;      //说明垂直分辨率，用象素/米表示
-  unsigned int biClrUsed ;    //说明位图实际使用的彩色表中的颜色索引数
-  unsigned int biClrImportant ;//说明对图象显示有重要影响的颜色索引的数目，如果是0，表示都重要。
+  uint32_t biCompression ;//说明图象数据压缩的类型。其值可以是下述值之一：
+  uint32_t biSizeImage ;  //说明图象的大小，以字节为单位。当用BI_RGB格式时，可设置为0
+  int32_t  biXPelsPerMeter ;      //说明水平分辨率，用象素/米表示
+  int32_t  biYPelsPerMeter ;      //说明垂直分辨率，用象素/米表示
+  uint32_t biClrUsed ;    //说明位图实际使用的彩色表中的颜色索引数
+  uint32_t biClrImportant ;//说明对图象显示有重要影响的颜色索引的数目，如果是0，表示都重要。
 } __attribute__ ((packed)) BITMAPINFOHEADER ;
 
 //BMP头文件
 typedef  struct
 {
   uint16_t  bfType ;        //文件标志.只对'BM',用来识别BMP位图类型
-  unsigned int bfSize ;     //文件大小,占四个字节
+  uint32_t bfSize ;     //文件大小,占四个字节
   uint16_t  bfReserved1 ;   //保留
   uint16_t  bfReserved2 ;   //保留
-  unsigned int bfOffBits ;  //从文件开始到位图数据(bitmap data)开始之间的的偏移量
+  uint32_t bfOffBits ;  //从文件开始到位图数据(bitmap data)开始之间的的偏移量
 } __attribute__ ((packed)) BITMAPFILEHEADER ;
 
 //彩色表
-typedef  struct
-{
-  uint8_t rgbBlue ;    //指定蓝色强度
-  uint8_t rgbGreen ;   //指定绿色强度
-  uint8_t rgbRed ;     //指定红色强度
-  uint8_t rgbReserved ;//保留，设置为0
-} __attribute__ ((packed)) RGBQUAD ;
+// typedef  struct
+// {
+  // uint8_t rgbBlue ;    //指定蓝色强度
+  // uint8_t rgbGreen ;   //指定绿色强度
+  // uint8_t rgbRed ;     //指定红色强度
+  // uint8_t rgbReserved ;//保留，设置为0
+// } __attribute__ ((packed)) RGBQUAD ;
+// typedef RGBQUAD * LPRGBQUAD;
 
 //位图信息头
 typedef  struct
@@ -118,21 +121,20 @@ typedef  struct
   //u32 RGB_MASK[3];     //调色板用于存放RGB掩码.
   //RGBQUAD bmiColors[256];
 } __attribute__ ((packed)) BITMAPINFO;
-typedef RGBQUAD * LPRGBQUAD;//彩色表
+
 
 
 //BMP解码函数
 bool bmpDecode( uint8_t *filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t));
 
-
 //JPEG 解码函数
-int jpgDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t));
-int  InitTag(void);
+int32_t jpgDecode(uint8_t* filename, void (*screenDrawPixel)(int16_t,int16_t,uint16_t));
+int32_t  InitTag(void);
 void InitTable(void);              //初始化数据表
-int  Decode(void (*screenDrawPixel)(int16_t,int16_t,uint16_t));//解码
-int  DecodeMCUBlock(void);
-int  HufBlock(uint8_t dchufindex,uint8_t achufindex);//哈夫曼解码
-int  DecodeElement(void);            //解码一个像素
+int32_t  Decode(void (*screenDrawPixel)(int16_t,int16_t,uint16_t));//解码
+int32_t  DecodeMCUBlock(void);
+int32_t  HufBlock(uint8_t dchufindex,uint8_t achufindex);//哈夫曼解码
+int32_t  DecodeElement(void);            //解码一个像素
 void IQtIZzMCUComponent(int16_t flag);       //反量化
 void IQtIZzBlock(int16_t  *s,int16_t * d,int16_t flag);
 void GetYUV(int16_t flag);     //色彩转换的实现,得到色彩空间数据
@@ -140,9 +142,9 @@ void StoreBuffer(void (*screenDrawPixel)(int16_t,int16_t,uint16_t));
 
 uint8_t ReadByte(void);             //从文件里面读取一个字节出来
 void Initialize_Fast_IDCT(void); //初始化反离散傅立叶变换
-void Fast_IDCT(int * block);   //快速反离散傅立叶变换
-void idctrow(int * blk);
-void idctcol(int * blk);
+void Fast_IDCT(int32_t * block);   //快速反离散傅立叶变换
+void idctrow(int32_t * blk);
+void idctcol(int32_t * blk);
 bool drawSDPicture(const char* filename,uint16_t sx,uint16_t sy,uint16_t ex,uint16_t ey, void (*screenDrawPixel)(int16_t,int16_t,uint16_t));//智能显示图片
 uint8_t pictype(uint8_t* filename); //判断图片类型
 #endif
